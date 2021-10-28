@@ -17,33 +17,77 @@ class GameScene implements Scene
     private boxSize_: number; //width and height of individual boxes (perfect square)
     private canvasSize_: Vector; //width and height of the canvas
 
+    private colors_: string[];
+    private colorEventLiseners_: HTMLInputElement[];
+
     constructor(game: Game) 
     {
+        //defaults, just to initialize
         this.game_ = game;
         this.gom_ = new GameobjectManager();
-        this.canvas_ = <HTMLCanvasElement>document.getElementById("main_canvas");
-
         this.columns_ = 10;
         this.rows_ = 20;
         this.boxSize_ = 32;
         this.canvasSize_ = new Vector(this.columns_ * this.boxSize_, this.rows_ * this.boxSize_);
+
+        //Canvas
+        this.canvas_ = <HTMLCanvasElement>document.getElementById("main_canvas");
+        if (this.canvas_ !== null) this.canvas_.addEventListener("mousedown", event => this.Click(event));
         this.canvas_.width = this.canvasSize_.x;
         this.canvas_.height = this.canvasSize_.y;
+
+        //Colors
+        this.colors_ = ["#cc0000", "#00cc00", "#0000cc", "#cccc00"]; //set up the default colors
+        this.colorEventLiseners_ = []; //prepare the color input event listener array
+        for (var i = 0; i < 4; i++)
+        {//add the 4 default colors to the list of color input
+            this.colorEventLiseners_.push(document.createElement("input")); //create HTMLInputElement
+            this.colorEventLiseners_[i].setAttribute("type", "color"); //set it to type color
+            this.colorEventLiseners_[i].setAttribute("id", i.toString()); //give it an ID (just a number starting at 0)
+            document.getElementById("color_div").appendChild(this.colorEventLiseners_[i]); //add it the the div, "color_div"
+            this.colorEventLiseners_[i].value = this.colors_[i]; //give the color input one of the default colors
+        }
+
+        //Event Listeners
+        const addColor = document.getElementById("add_color_button"); //event listener for adding colors
+        addColor.addEventListener("click", event => this.AddColorInput());
+
+        const subColor = document.getElementById("sub_color_button"); //event listener for removing colors
+        subColor.addEventListener("click", event => this.SubColorInput());
+
+        const shuffleButton = <HTMLButtonElement>document.getElementById("shuffle_button"); //event listener for shuffle button
+        if (shuffleButton !== null) shuffleButton.addEventListener("click", event => this.ChangeScene("Game"));
     }
 
     public Init() 
     {
-        if (this.canvas_ !== null) this.canvas_.addEventListener("mousedown", event => this.Click(event));
+        //set columns and rows using the numbers in the settings
+        const columnInput = <HTMLInputElement>document.getElementById("column_input");
+        const rowInput = <HTMLInputElement>document.getElementById("row_input");
+        this.columns_ = parseInt(columnInput.value, 10);
+        this.rows_ = parseInt(rowInput.value, 10);
+        //scale box size depending on # of columns/rows and size of the browser window
+        if (this.columns_ > this.rows_) this.boxSize_ = Math.floor(window.innerWidth / this.columns_);
+        else this.boxSize_ = Math.floor(window.innerHeight / this.rows_);
+        //set the cavas size to fit boxes
+        this.canvasSize_ = new Vector(this.columns_ * this.boxSize_, this.rows_ * this.boxSize_);
+        this.canvas_.width = this.canvasSize_.x;
+        this.canvas_.height = this.canvasSize_.y;
+        
+        //Grab colors from color inputs
+        for (var i = 0; i < this.colorEventLiseners_.length; i++)
+        {
+            this.colors_.push(this.colorEventLiseners_[i].value);
+        }
 
-        var colors: string[] = ["green", "blue", "red", "yellow"];
         var boxNum = 0; //used to set IDs and Tags
         for (var y = 0; y < this.rows_; y++)
         {
             for (var x = 0; x < this.columns_; x++)
             {//make box objects
-                var randomColor: number = Math.floor(Math.random() * 4);
+                var randomColor: number = Math.floor(Math.random() * this.colors_.length);
                 this.Add(new Box(this, "Box", "Box", boxNum, new Vector(this.boxSize_*x, this.boxSize_*y), 
-                    new Vector(this.boxSize_, this.boxSize_), colors[randomColor], this.columns_, this.rows_));
+                    new Vector(this.boxSize_, this.boxSize_), this.colors_[randomColor], this.columns_, this.rows_));
                 boxNum++;
             }
         }
@@ -52,7 +96,6 @@ class GameScene implements Scene
     public Update(delta_time: number) 
     {
         this.gom_.Update(delta_time);
-        //this.gom_.RemoveDead();
     }
 
     public Draw(ctx: CanvasRenderingContext2D | null) 
@@ -87,9 +130,13 @@ class GameScene implements Scene
 
     public End()
     {
-        this.gom_.Clear();
+        this.gom_.Clear(); //remove objects
+        this.colors_ = []; //reset color array
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    //Functions for Game Logic
+    ///////////////////////////////////////////////////////////////////////////////////////////////
     public Click(event: MouseEvent)
     {
         if (this.canvas_ === null || this.canvas_ === undefined) 
@@ -107,8 +154,6 @@ class GameScene implements Scene
         var ID = this.ConvertLocalToID(localPosition);
         if (ID === null) return;
 
-        // var object = this.gom_.SearchByID(ID);
-        // if (object !== null) object.Dead = true;
         this.DestroyBoxs(ID);
         this.MoveBoxesDown();
         this.MoveBoxesLeft();
@@ -153,49 +198,53 @@ class GameScene implements Scene
     }
 
     private MoveBoxesDown()
-    {
+    {//start at the bottom right box - moves right to left, bottom to top - using ID's for location
         for (var i = (this.columns_ * this.rows_) - 1; i > this.columns_ - 1; i--)
         {
-            if (this.SearchByID(i) !== null) continue;            
+            if (this.SearchByID(i) !== null) continue; //ignore the box if it exists          
             for (var j = i - this.columns_; j >= 0; j -= this.columns_)
-            {
+            {//if object === null go up the column to find a box (if it exists) and bring it down
                 var box = this.SearchByID(j);
-                if (box === null) continue;
+                if (box === null) continue; //ignore if null object
                 else if (box.Name === "Box")
-                {
-                    var emptyPosition: Vector = this.ConvertLocalToWorld(this.ConvertIDToLocal(i));
-                    (box as Box).Translate(new Vector(emptyPosition.x, emptyPosition.y), i);
-                    break;
+                {//found a box!
+                    var emptyPosition: Vector = this.ConvertLocalToWorld(this.ConvertIDToLocal(i)); //convert box ID to world coordinates
+                    (box as Box).Translate(new Vector(emptyPosition.x, emptyPosition.y), i); //move box down
+                    break; //break because a box was found
                 }
             }
         }
     }
 
     private MoveBoxesLeft()
-    {
+    {//look at only the bottom row - moves right to left - using ID's for location
         for (var i = this.columns_ * (this.rows_ - 1); i < this.columns_ * this.rows_; i++)
         {
-            if (this.SearchByID(i) !== null) continue;
-
+            if (this.SearchByID(i) !== null) continue; //ignore if box exists
             for (var j = i + 1; j < this.columns_ * this.rows_; j++)
-            {
-                if (this.SearchByID(j) === null) continue;
-
+            {//found null, which means empty column! now go right and find the nearest non-empty column
+                if (this.SearchByID(j) === null) continue; //ignore empty columns
                 for (var k = j; k > 0; k -= this.columns_)
-                {
+                {//found non-empty column! now proceed to move each box in the column to the left
                     var box = this.SearchByID(k);
-                    if (box === null) continue;
+                    if (box === null) continue; //ignore null boxes
                     else if (box.Name === "Box")
                     {
-                        var emptyPosition: Vector = this.ConvertLocalToWorld(this.ConvertIDToLocal(i));
-                        (box as Box).Translate(new Vector(emptyPosition.x, (box as Box).TargetPosition.y), k - (j - i));
+                        var emptyPosition: Vector = this.ConvertLocalToWorld(this.ConvertIDToLocal(i)); //convert box ID to world coordinates
+                        (box as Box).Translate(new Vector(emptyPosition.x, (box as Box).TargetPosition.y), k - (j - i)); //move box left
                     }
                 }
-                break;
+                break;//break as column was moved
             }
         }
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    //Coordinates
+    //World - canvas coordinates
+    //Local - grid - columns X rows
+    //ID - 0 => columns x rows - left to right, top to bottom
+    ///////////////////////////////////////////////////////////////////////////////////////////////
     private ConvertWorldToLocal(worldPosition: Vector)
     {
         var localPosition: Vector | null = new Vector(0, 0);
@@ -224,12 +273,34 @@ class GameScene implements Scene
 
         return ID;
     }
+
     private ConvertIDToLocal(ID: number)
     {
         var localPosition = new Vector(0, 0);
         localPosition.x = ID % this.columns_;
         localPosition.y = Math.floor(ID / this.columns_);
         return localPosition;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    //Functions for Event Listeners
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    private AddColorInput()
+    {
+        this.colorEventLiseners_.push(document.createElement("input"));
+        this.colorEventLiseners_[this.colorEventLiseners_.length - 1].setAttribute("type", "color");
+        this.colorEventLiseners_[this.colorEventLiseners_.length - 1].setAttribute("id", (this.colorEventLiseners_.length - 1).toString());
+        document.getElementById("color_div").appendChild(this.colorEventLiseners_[this.colorEventLiseners_.length - 1]);
+        this.colorEventLiseners_[this.colorEventLiseners_.length - 1].value = "#ffffff";
+    }
+
+    private SubColorInput()
+    {
+        const colorInputs = document.getElementById("color_div").children;
+        document.getElementById("color_div").removeChild(colorInputs[colorInputs.length - 1]);
+
+        delete this.colorEventLiseners_[this.colorEventLiseners_.length - 1];
+        this.colorEventLiseners_.splice(this.colorEventLiseners_.length - 1, 1);
     }
 }
 
