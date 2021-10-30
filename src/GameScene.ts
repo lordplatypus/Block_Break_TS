@@ -106,6 +106,16 @@ class GameScene implements Scene
                 boxNum++;
             }
         }
+
+        const area_powerup_input = <HTMLInputElement>document.getElementById("area_powerup_input");
+        area_powerup_input.disabled = true;
+        area_powerup_input.checked = false;
+        const row_powerup_input = <HTMLInputElement>document.getElementById("row_powerup_input");
+        row_powerup_input.disabled = true;
+        row_powerup_input.checked = false;
+        const column_powerup_input = <HTMLInputElement>document.getElementById("column_powerup_input");
+        column_powerup_input.disabled = true;
+        column_powerup_input.checked = false;
     }
     
     public Update(delta_time: number) 
@@ -169,7 +179,14 @@ class GameScene implements Scene
         var ID = this.ConvertLocalToID(localPosition);
         if (ID === null) return;
 
-        this.DestroyBoxs(ID);
+        const area_powerup_input = <HTMLInputElement>document.getElementById("area_powerup_input");
+        const row_powerup_input = <HTMLInputElement>document.getElementById("row_powerup_input");
+        const column_powerup_input = <HTMLInputElement>document.getElementById("column_powerup_input");
+        if (area_powerup_input.checked) this.AreaPowerUp(ID);
+        else if (row_powerup_input.checked) this.RowPowerUp(ID);
+        else if (column_powerup_input.checked) this.ColumnPowerUp(ID);
+        else this.DestroyBoxs(ID);
+
         this.MoveBoxesDown();
         this.MoveBoxesLeft();
     }
@@ -196,7 +213,7 @@ class GameScene implements Scene
     private DestroyBoxs(ID: number)
     {
         var checkedBoxes: number[] = []; //hold checked box id's
-        var boxesToDestroy: number[] = []; //holds cox id's that need to be destroyed
+        var boxesToDestroy: number[] = []; //holds box id's that need to be destroyed
         this.SearchForLikeBox(ID, ID, checkedBoxes, boxesToDestroy); //recursive function to find same colored boxes
 
         if (boxesToDestroy.length < 2) return; //if no nearby boxes of the same color are not found, return without destroying anything
@@ -207,6 +224,7 @@ class GameScene implements Scene
         }
 
         this.gom_.RemoveDead();
+        this.PowerUp(boxesToDestroy.length); //was the num of boxes destroyed enough to activate a powerup?
     }
 
     private SearchForLikeBox(originalID: number, currentID: number, checkedBoxes: number[], likeBoxes: number[])
@@ -271,6 +289,104 @@ class GameScene implements Scene
                 break;//break as column was moved
             }
         }
+    }
+
+    private PowerUp(boxesDestroyed: number)
+    {
+        if (boxesDestroyed < 10) return; //not good enough to activate a powerup
+
+        const area_powerup_input = <HTMLInputElement>document.getElementById("area_powerup_input");
+        const row_powerup_input = <HTMLInputElement>document.getElementById("row_powerup_input");
+        const column_powerup_input = <HTMLInputElement>document.getElementById("column_powerup_input");
+
+        if (boxesDestroyed >= 20 && column_powerup_input.disabled)
+        {
+            column_powerup_input.disabled = false;
+        }
+        else if (boxesDestroyed > 15 && row_powerup_input.disabled)
+        {
+            row_powerup_input.disabled = false;
+        }
+        else if (area_powerup_input.disabled)
+        {
+            area_powerup_input.disabled = false;
+        } 
+    }
+
+    private AreaPowerUp(ID: number)
+    {
+        const area_powerup_input = <HTMLInputElement>document.getElementById("area_powerup_input");
+        area_powerup_input.disabled = true;
+        area_powerup_input.checked = false;
+
+        var boxesToDestroy: number[] = [ID]; //holds box id's that need to be destroyed, starting with ID
+
+        var down: boolean = false;
+        var right: boolean = false;
+        var up: boolean = false;
+        var left: boolean = false;
+        if (ID < this.columns_ * (this.rows_ - 1)) down = true; //Down
+        if (ID % this.columns_ !== (this.columns_ - 1)) right = true; //Right
+        if (ID > this.columns_ - 1) up = true; //Up
+        if (ID % this.columns_ !== 0) left = true; //Left
+        if (down)
+        {
+            const num = ID + this.columns_;
+            boxesToDestroy.push(num); //bottom
+            if (left) boxesToDestroy.push(num - 1); //bottom left
+            if (right) boxesToDestroy.push(num + 1); //bottom right
+        }
+        if (up)
+        {
+            const num = ID - this.columns_;
+            boxesToDestroy.push(num); //top
+            if (left) boxesToDestroy.push(num - 1); //top left
+            if (right) boxesToDestroy.push(num + 1); //top right
+        }
+        if (left) boxesToDestroy.push(ID - 1); //left
+        if (right) boxesToDestroy.push(ID + 1); //right
+
+        for (var i = 0; i < boxesToDestroy.length; i++)
+        {//go through all returned id's and destroy them
+            var object = this.SearchByID(boxesToDestroy[i]);
+            if (object !== null) object.Dead = true;
+        }
+
+        this.gom_.RemoveDead();
+    }
+
+    private RowPowerUp(ID: number)
+    {
+        const row_powerup_input = <HTMLInputElement>document.getElementById("row_powerup_input");
+        row_powerup_input.disabled = true;
+        row_powerup_input.checked = false;
+
+        const startID = Math.floor(ID / this.columns_) * this.columns_;
+
+        for (var i = startID; i < startID + this.columns_; i++)
+        {
+            var object = this.SearchByID(i);
+            if (object !== null) object.Dead = true;
+        }
+
+        this.gom_.RemoveDead();
+    }
+
+    private ColumnPowerUp(ID: number)
+    {
+        const column_powerup_input = <HTMLInputElement>document.getElementById("column_powerup_input");
+        column_powerup_input.disabled = true;
+        column_powerup_input.checked = false;
+
+        const startID = ID % this.columns_;
+
+        for (var i = startID; i < startID + this.columns_ * this.rows_; i = i + this.columns_)
+        {
+            var object = this.SearchByID(i);
+            if (object !== null) object.Dead = true;
+        }
+
+        this.gom_.RemoveDead();
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
