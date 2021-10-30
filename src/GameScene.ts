@@ -32,7 +32,22 @@ class GameScene implements Scene
 
         //Canvas
         this.canvas_ = <HTMLCanvasElement>document.getElementById("main_canvas");
-        if (this.canvas_ !== null) this.canvas_.addEventListener("mousedown", event => this.Click(event));
+        if (this.canvas_ !== null) 
+        {
+            const isMobile: boolean = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            if (isMobile)
+            {
+                //this.canvas_.addEventListener("touchstart", TouchStart, false);
+                //this.canvas_.addEventListener("touchmove", TouchMove, false);
+                this.canvas_.addEventListener("touchend", event => this.Touch(event), false);
+                console.log("mobile");
+            }
+            else 
+            {
+                this.canvas_.addEventListener("mousedown", event => this.Click(event));
+                console.log("not mobile");
+            }
+        }
         this.canvas_.width = this.canvasSize_.x;
         this.canvas_.height = this.canvasSize_.y;
 
@@ -137,7 +152,7 @@ class GameScene implements Scene
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //Functions for Game Logic
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    public Click(event: MouseEvent)
+    private Click(event: MouseEvent)
     {
         if (this.canvas_ === null || this.canvas_ === undefined) 
         {
@@ -148,6 +163,25 @@ class GameScene implements Scene
         var mousePosition: Vector = new Vector(0, 0);
         mousePosition.x = event.clientX - rectangle.left;
         mousePosition.y = event.clientY - rectangle.top;
+
+        var localPosition = this.ConvertWorldToLocal(mousePosition);
+        if (localPosition === null) return;
+        var ID = this.ConvertLocalToID(localPosition);
+        if (ID === null) return;
+
+        this.DestroyBoxs(ID);
+        this.MoveBoxesDown();
+        this.MoveBoxesLeft();
+    }
+
+    private Touch(event: TouchEvent)
+    {
+        event.preventDefault(); //prevent other input
+        var touch = event.changedTouches[0]; //grab touch event (touch end)
+        var rectangle = this.canvas_.getBoundingClientRect();
+        var mousePosition: Vector = new Vector(0, 0);
+        mousePosition.x = touch.pageX - rectangle.left;
+        mousePosition.y = touch.pageY - rectangle.top;
 
         var localPosition = this.ConvertWorldToLocal(mousePosition);
         if (localPosition === null) return;
