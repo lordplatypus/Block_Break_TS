@@ -59,16 +59,17 @@ class GameScene implements Scene
             this.colorEventLiseners_.push(document.createElement("input")); //create HTMLInputElement
             this.colorEventLiseners_[i].setAttribute("type", "color"); //set it to type color
             this.colorEventLiseners_[i].setAttribute("id", i.toString()); //give it an ID (just a number starting at 0)
-            document.getElementById("color_div").appendChild(this.colorEventLiseners_[i]); //add it the the div, "color_div"
+            var colorDiv : HTMLElement | null = document.getElementById("color_div");
+            if (colorDiv !== null) colorDiv.appendChild(this.colorEventLiseners_[i]); //add it the the div, "color_div"
             this.colorEventLiseners_[i].value = this.colors_[i]; //give the color input one of the default colors
         }
 
         //Event Listeners
         const addColor = document.getElementById("add_color_button"); //event listener for adding colors
-        addColor.addEventListener("click", event => this.AddColorInput());
+        if (addColor !== null) addColor.addEventListener("click", event => this.AddColorInput());
 
         const subColor = document.getElementById("sub_color_button"); //event listener for removing colors
-        subColor.addEventListener("click", event => this.SubColorInput());
+        if (subColor !== null) subColor.addEventListener("click", event => this.SubColorInput());
 
         const shuffleButton = <HTMLButtonElement>document.getElementById("shuffle_button"); //event listener for shuffle button
         if (shuffleButton !== null) shuffleButton.addEventListener("click", event => this.ChangeScene("Game"));
@@ -86,9 +87,12 @@ class GameScene implements Scene
         else this.boxSize_ = Math.floor(window.innerHeight / this.rows_);
         //set the cavas size to fit boxes
         this.canvasSize_ = new Vector(this.columns_ * this.boxSize_, this.rows_ * this.boxSize_);
-        this.canvas_.width = this.canvasSize_.x;
-        this.canvas_.height = this.canvasSize_.y;
-        
+        if (this.canvas_ !== null)
+        {
+            this.canvas_.width = this.canvasSize_.x;
+            this.canvas_.height = this.canvasSize_.y;
+        }
+
         //Grab colors from color inputs
         for (var i = 0; i < this.colorEventLiseners_.length; i++)
         {
@@ -195,7 +199,8 @@ class GameScene implements Scene
     {
         event.preventDefault(); //prevent other input
         var touch = event.changedTouches[0]; //grab touch event (touch end)
-        var rectangle = this.canvas_.getBoundingClientRect();
+        var rectangle : DOMRect = new DOMRect(0, 0, 0, 0);
+        if (this.canvas_ !== null) rectangle = this.canvas_.getBoundingClientRect();
         var mousePosition: Vector = new Vector(0, 0);
         mousePosition.x = touch.pageX - rectangle.left;
         mousePosition.y = touch.pageY - rectangle.top;
@@ -440,14 +445,21 @@ class GameScene implements Scene
         this.colorEventLiseners_.push(document.createElement("input"));
         this.colorEventLiseners_[this.colorEventLiseners_.length - 1].setAttribute("type", "color");
         this.colorEventLiseners_[this.colorEventLiseners_.length - 1].setAttribute("id", (this.colorEventLiseners_.length - 1).toString());
-        document.getElementById("color_div").appendChild(this.colorEventLiseners_[this.colorEventLiseners_.length - 1]);
+        var colorDiv : HTMLElement | null = document.getElementById("color_div");
+        if (colorDiv !== null) colorDiv.appendChild(this.colorEventLiseners_[this.colorEventLiseners_.length - 1]);
         this.colorEventLiseners_[this.colorEventLiseners_.length - 1].value = "#ffffff";
     }
 
     private SubColorInput()
     {
-        const colorInputs = document.getElementById("color_div").children;
-        document.getElementById("color_div").removeChild(colorInputs[colorInputs.length - 1]);
+        var colorDiv : HTMLElement | null = document.getElementById("color_div");
+
+        var colorInputs : HTMLCollection;
+        if (colorDiv !== null) 
+        {
+            colorInputs = colorDiv.children;
+            colorDiv.removeChild(colorInputs[colorInputs.length - 1]);
+        }
 
         delete this.colorEventLiseners_[this.colorEventLiseners_.length - 1];
         this.colorEventLiseners_.splice(this.colorEventLiseners_.length - 1, 1);
